@@ -31,7 +31,7 @@ Reescrita moderna de `thiago-jv/API-CONTROLE-DE-KITNETS` — o projeto antigo é
 
 ## Pacotes
 ```
-com.<seu-grupo>.kitnets
+com.kitnets
 ├── api
 │   ├── exceptionhandler     # ApiExceptionHandler → ProblemDetail
 │   └── v1
