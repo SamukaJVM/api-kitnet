@@ -1,6 +1,8 @@
 package com.kitnet.domain.service;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.kitnet.domain.exception.EntidadeEmUsoException;
@@ -34,7 +36,7 @@ public class CadastroPredioService {
 			predioRepository.flush();
 			return saved;
 		} catch (DataIntegrityViolationException e) {
-			throw new NegocioException("Já existe um prédio cadastrado com essa descrição");
+			throw new NegocioException("Não foi possível salvar o prédio: dados conflitantes");
 		}
 	}
 
@@ -53,6 +55,21 @@ public class CadastroPredioService {
 	public Predio buscarOuFalhar(Long predioId) {
 		return predioRepository.findById(predioId)
 			.orElseThrow(() -> new PredioNaoEncontradoException("Prédio não encontrado com id: " + predioId));
+	}
+
+	@Transactional(readOnly = true)
+	public Page<Predio> listar(Pageable pageable) {
+		return predioRepository.findAll(pageable);
+	}
+
+	@Transactional
+	public Predio atualizar(Long predioId, Predio predioAtualizado) {
+		if (predioRepository.existsByDescricaoAndIdNot(predioAtualizado.getDescricao(), predioId)) {
+			throw new NegocioException("Já existe um prédio cadastrado com essa descrição");
+		}
+		Predio predio = buscarOuFalhar(predioId);
+		predio.atualizarDados(predioAtualizado);
+		return salvar(predio);
 	}
 
 }

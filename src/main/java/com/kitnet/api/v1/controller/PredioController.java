@@ -20,7 +20,6 @@ import com.kitnet.api.v1.mapper.PredioMapper;
 import com.kitnet.api.v1.model.PredioModel;
 import com.kitnet.api.v1.openapi.PredioControllerOpenApi;
 import com.kitnet.domain.model.Predio;
-import com.kitnet.domain.repository.PredioRepository;
 import com.kitnet.domain.service.CadastroPredioService;
 
 import jakarta.validation.Valid;
@@ -29,15 +28,12 @@ import jakarta.validation.Valid;
 @RequestMapping("/v1/predios")
 public class PredioController implements PredioControllerOpenApi {
 
-	private final PredioRepository predioRepository;
 	private final CadastroPredioService cadastroPredioService;
 	private final PredioMapper predioMapper;
 
 	public PredioController(
-			PredioRepository predioRepository,
 			CadastroPredioService cadastroPredioService,
 			PredioMapper predioMapper) {
-		this.predioRepository = predioRepository;
 		this.cadastroPredioService = cadastroPredioService;
 		this.predioMapper = predioMapper;
 	}
@@ -45,7 +41,7 @@ public class PredioController implements PredioControllerOpenApi {
 	@GetMapping
 	@Override
 	public Page<PredioModel> listar(Pageable pageable) {
-		return predioRepository.findAll(pageable)
+		return cadastroPredioService.listar(pageable)
 				.map(predioMapper::toModel);
 	}
 
@@ -75,19 +71,8 @@ public class PredioController implements PredioControllerOpenApi {
 	public ResponseEntity<PredioModel> atualizar(
 			@PathVariable Long id,
 			@RequestBody @Valid PredioInput predioInput) {
-		Predio predio = cadastroPredioService.buscarOuFalhar(id);
-
-		predio.setDescricao(predioInput.descricao());
-		predio.setCep(predioInput.cep());
-		predio.setLogradouro(predioInput.logradouro());
-		predio.setComplemento(predioInput.complemento());
-		predio.setBairro(predioInput.bairro());
-		predio.setLocalidade(predioInput.localidade());
-		predio.setUf(predioInput.uf());
-		predio.setNumero(predioInput.numero());
-
-		predio = cadastroPredioService.salvar(predio);
-
+		Predio predioAtualizado = predioMapper.toDomain(predioInput);
+		Predio predio = cadastroPredioService.atualizar(id, predioAtualizado);
 		return ResponseEntity.ok(predioMapper.toModel(predio));
 	}
 

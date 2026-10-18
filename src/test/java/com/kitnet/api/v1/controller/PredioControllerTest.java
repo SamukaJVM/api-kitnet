@@ -1,46 +1,16 @@
 package com.kitnet.api.v1.controller;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.context.WebApplicationContext;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.kitnet.api.v1.input.PredioInput;
-import com.kitnet.config.TestcontainersConfiguration;
+import com.kitnet.api.v1.model.PredioModel;
+import com.kitnet.config.IntegrationTest;
 
-@SpringBootTest
-@Import(TestcontainersConfiguration.class)
-class PredioControllerTest {
-
-	@Autowired
-	private WebApplicationContext wac;
-
-	private final JsonMapper jsonMapper = new JsonMapper();
-
-	private MockMvc mockMvc;
-
-	private void setupMockMvc() {
-		if (mockMvc == null) {
-			mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
-		}
-	}
+class PredioControllerTest extends IntegrationTest {
 
 	@Test
-	void shouldCreatePredioWithSuccess() throws Exception {
-		setupMockMvc();
-
+	void deveCriarPredioComSucesso() {
 		PredioInput input = new PredioInput(
 			"Prédio A",
 			"12345678",
@@ -52,19 +22,19 @@ class PredioControllerTest {
 			"100"
 		);
 
-		mockMvc.perform(post("/v1/predios")
+		restTestClient.post().uri("/v1/predios")
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(input)))
-			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.id").isNotEmpty())
-			.andExpect(jsonPath("$.descricao").value("Prédio A"))
-			.andExpect(jsonPath("$.cep").value("12345678"));
+			.body(input)
+			.exchange()
+			.expectStatus().isCreated()
+			.expectBody()
+			.jsonPath("$.id").isNotEmpty()
+			.jsonPath("$.descricao").isEqualTo("Prédio A")
+			.jsonPath("$.cep").isEqualTo("12345678");
 	}
 
 	@Test
-	void shouldReturnCreatedWith201StatusAndLocationHeader() throws Exception {
-		setupMockMvc();
-
+	void deveRetornarCriadoComStatus201EHeaderLocation() {
 		PredioInput input = new PredioInput(
 			"Prédio B",
 			"87654321",
@@ -76,90 +46,91 @@ class PredioControllerTest {
 			null
 		);
 
-		mockMvc.perform(post("/v1/predios")
+		restTestClient.post().uri("/v1/predios")
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(input)))
-			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.id").exists());
+			.body(input)
+			.exchange()
+			.expectStatus().isCreated()
+			.expectBody()
+			.jsonPath("$.id").exists();
 	}
 
 	@Test
-	void shouldFindPredioById() throws Exception {
-		setupMockMvc();
-
+	void deveEncontrarPredioPorId() {
 		PredioInput input = new PredioInput(
 			"Prédio Para Buscar",
 			"11111111",
 			null, null, null, null, null, null
 		);
-		String response = mockMvc.perform(post("/v1/predios")
+
+		PredioModel criado = restTestClient.post().uri("/v1/predios")
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(input)))
-			.andExpect(status().isCreated())
-			.andReturn()
-			.getResponse()
-			.getContentAsString();
+			.body(input)
+			.exchange()
+			.expectStatus().isCreated()
+			.expectBody(PredioModel.class)
+			.returnResult()
+			.getResponseBody();
 
-		Long id = jsonMapper.readTree(response).get("id").asLong();
-
-		mockMvc.perform(get("/v1/predios/{id}", id))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.id").value(id))
-			.andExpect(jsonPath("$.descricao").value("Prédio Para Buscar"));
+		restTestClient.get().uri("/v1/predios/{id}", criado.id())
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody()
+			.jsonPath("$.id").isEqualTo(criado.id())
+			.jsonPath("$.descricao").isEqualTo("Prédio Para Buscar");
 	}
 
 	@Test
-	void shouldReturn404WhenPredioNotFound() throws Exception {
-		setupMockMvc();
-
-		mockMvc.perform(get("/v1/predios/9999"))
-			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.status").value(404))
-			.andExpect(jsonPath("$.title").value("Entidade não encontrada"));
+	void deveRetornar404QuandoPredioNaoEncontrado() {
+		restTestClient.get().uri("/v1/predios/9999")
+			.exchange()
+			.expectStatus().isNotFound()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(404)
+			.jsonPath("$.title").isEqualTo("Entidade não encontrada");
 	}
 
 	@Test
-	void shouldReturnErrorForDuplicateDescricao() throws Exception {
-		setupMockMvc();
-
+	void deveRetornarErroParaDescricaoDuplicada() {
 		PredioInput input = new PredioInput(
 			"Prédio Duplicado",
 			"22222222",
 			null, null, null, null, null, null
 		);
 
-		mockMvc.perform(post("/v1/predios")
+		restTestClient.post().uri("/v1/predios")
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(input)))
-			.andExpect(status().isCreated());
+			.body(input)
+			.exchange()
+			.expectStatus().isCreated();
 
-		mockMvc.perform(post("/v1/predios")
+		restTestClient.post().uri("/v1/predios")
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(input)))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.status").value(400))
-			.andExpect(jsonPath("$.title").value("Violação de regra de negócio"));
+			.body(input)
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(400)
+			.jsonPath("$.title").isEqualTo("Violação de regra de negócio");
 	}
 
 	@Test
-	void shouldUpdatePredio() throws Exception {
-		setupMockMvc();
-
+	void deveAtualizarPredio() {
 		PredioInput input = new PredioInput(
 			"Prédio Original",
 			"33333333",
 			"Rua Original",
 			null, null, null, null, null
 		);
-		String response = mockMvc.perform(post("/v1/predios")
-			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(input)))
-			.andExpect(status().isCreated())
-			.andReturn()
-			.getResponse()
-			.getContentAsString();
 
-		Long id = jsonMapper.readTree(response).get("id").asLong();
+		PredioModel criado = restTestClient.post().uri("/v1/predios")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(input)
+			.exchange()
+			.expectStatus().isCreated()
+			.expectBody(PredioModel.class)
+			.returnResult()
+			.getResponseBody();
 
 		PredioInput updatedInput = new PredioInput(
 			"Prédio Atualizado",
@@ -168,80 +139,81 @@ class PredioControllerTest {
 			null, null, null, null, null
 		);
 
-		mockMvc.perform(put("/v1/predios/{id}", id)
+		restTestClient.put().uri("/v1/predios/{id}", criado.id())
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(updatedInput)))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.id").value(id))
-			.andExpect(jsonPath("$.descricao").value("Prédio Atualizado"))
-			.andExpect(jsonPath("$.logradouro").value("Rua Nova"));
+			.body(updatedInput)
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody()
+			.jsonPath("$.id").isEqualTo(criado.id())
+			.jsonPath("$.descricao").isEqualTo("Prédio Atualizado")
+			.jsonPath("$.logradouro").isEqualTo("Rua Nova");
 	}
 
 	@Test
-	void shouldDeletePredio() throws Exception {
-		setupMockMvc();
-
+	void deveDeletarPredio() {
 		PredioInput input = new PredioInput(
 			"Prédio Para Deletar",
 			"55555555",
 			null, null, null, null, null, null
 		);
-		String response = mockMvc.perform(post("/v1/predios")
+
+		PredioModel criado = restTestClient.post().uri("/v1/predios")
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(input)))
-			.andExpect(status().isCreated())
-			.andReturn()
-			.getResponse()
-			.getContentAsString();
+			.body(input)
+			.exchange()
+			.expectStatus().isCreated()
+			.expectBody(PredioModel.class)
+			.returnResult()
+			.getResponseBody();
 
-		Long id = jsonMapper.readTree(response).get("id").asLong();
+		restTestClient.delete().uri("/v1/predios/{id}", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
 
-		mockMvc.perform(delete("/v1/predios/{id}", id))
-			.andExpect(status().isNoContent());
-
-		mockMvc.perform(get("/v1/predios/{id}", id))
-			.andExpect(status().isNotFound());
+		restTestClient.get().uri("/v1/predios/{id}", criado.id())
+			.exchange()
+			.expectStatus().isNotFound();
 	}
 
 	@Test
-	void shouldListPrediosPaginated() throws Exception {
-		setupMockMvc();
-
+	void deveListarPrediosPaginado() {
 		PredioInput input = new PredioInput(
 			"Prédio Para Listar",
 			"66666666",
 			null, null, null, null, null, null
 		);
 
-		mockMvc.perform(post("/v1/predios")
+		restTestClient.post().uri("/v1/predios")
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(input)))
-			.andExpect(status().isCreated());
+			.body(input)
+			.exchange()
+			.expectStatus().isCreated();
 
-		mockMvc.perform(get("/v1/predios"))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.content").isArray());
+		restTestClient.get().uri("/v1/predios")
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody()
+			.jsonPath("$.content").isArray();
 	}
 
 	@Test
-	void shouldUpdatePredioWithSameDescricao() throws Exception {
-		setupMockMvc();
-
+	void deveAtualizarPredioComMesmaDescricao() {
 		PredioInput input = new PredioInput(
 			"Prédio Mesmo Nome",
 			"77777777",
 			"Rua Inicial",
 			null, null, null, null, null
 		);
-		String response = mockMvc.perform(post("/v1/predios")
-			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(input)))
-			.andExpect(status().isCreated())
-			.andReturn()
-			.getResponse()
-			.getContentAsString();
 
-		Long id = jsonMapper.readTree(response).get("id").asLong();
+		PredioModel criado = restTestClient.post().uri("/v1/predios")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(input)
+			.exchange()
+			.expectStatus().isCreated()
+			.expectBody(PredioModel.class)
+			.returnResult()
+			.getResponseBody();
 
 		PredioInput sameDescInput = new PredioInput(
 			"Prédio Mesmo Nome",
@@ -250,32 +222,79 @@ class PredioControllerTest {
 			null, null, null, null, null
 		);
 
-		mockMvc.perform(put("/v1/predios/{id}", id)
+		restTestClient.put().uri("/v1/predios/{id}", criado.id())
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(sameDescInput)))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.descricao").value("Prédio Mesmo Nome"))
-			.andExpect(jsonPath("$.cep").value("88888888"))
-			.andExpect(jsonPath("$.logradouro").value("Rua Alterada"));
+			.body(sameDescInput)
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody()
+			.jsonPath("$.descricao").isEqualTo("Prédio Mesmo Nome")
+			.jsonPath("$.cep").isEqualTo("88888888")
+			.jsonPath("$.logradouro").isEqualTo("Rua Alterada");
 	}
 
 	@Test
-	void shouldReturnValidationErrorWithFieldsForInvalidCep() throws Exception {
-		setupMockMvc();
+	void deveRetornarErroAoAtualizarComDescricaoDuplicada() {
+		PredioInput input1 = new PredioInput(
+			"Prédio A Para Update",
+			"99999999",
+			null, null, null, null, null, null
+		);
 
+		restTestClient.post().uri("/v1/predios")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(input1)
+			.exchange()
+			.expectStatus().isCreated();
+
+		PredioInput input2 = new PredioInput(
+			"Prédio B Para Update",
+			"00000000",
+			null, null, null, null, null, null
+		);
+
+		PredioModel criado = restTestClient.post().uri("/v1/predios")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(input2)
+			.exchange()
+			.expectStatus().isCreated()
+			.expectBody(PredioModel.class)
+			.returnResult()
+			.getResponseBody();
+
+		PredioInput updateWithDuplicateDesc = new PredioInput(
+			"Prédio A Para Update",
+			"11111111",
+			null, null, null, null, null, null
+		);
+
+		restTestClient.put().uri("/v1/predios/{id}", criado.id())
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(updateWithDuplicateDesc)
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(400)
+			.jsonPath("$.title").isEqualTo("Violação de regra de negócio");
+	}
+
+	@Test
+	void deveRetornarErroValidacaoComFieldsParaCepInvalido() {
 		PredioInput input = new PredioInput(
 			"Prédio Validação CEP",
 			"123",
 			null, null, null, null, null, null
 		);
 
-		mockMvc.perform(post("/v1/predios")
+		restTestClient.post().uri("/v1/predios")
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(jsonMapper.writeValueAsString(input)))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.status").value(400))
-			.andExpect(jsonPath("$.title").value("Erro de validação"))
-			.andExpect(jsonPath("$.fields.cep").exists());
+			.body(input)
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(400)
+			.jsonPath("$.title").isEqualTo("Erro de validação")
+			.jsonPath("$.fields.cep").exists();
 	}
 
 }

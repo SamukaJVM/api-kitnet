@@ -47,4 +47,15 @@ public class Predio {
 	@Size(max = 10, message = "Número não pode exceder 10 caracteres")
 	private String numero;
 
+	public void atualizarDados(Predio dados) {
+		this.descricao = dados.descricao;
+		this.cep = dados.cep;
+		this.logradouro = dados.logradouro;
+		this.complemento = dados.complemento;
+		this.bairro = dados.bairro;
+		this.localidade = dados.localidade;
+		this.uf = dados.uf;
+		this.numero = dados.numero;
+	}
+
 }
