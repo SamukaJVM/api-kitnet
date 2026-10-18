@@ -65,6 +65,9 @@ com.kitnets
   Regra violada → `NegocioException` (400).
 - Evento → RabbitMQ só após commit (`@TransactionalEventListener(phase = AFTER_COMMIT)`).
 - Segredos via variável de ambiente. Nada de senha no `application.yml` versionado.
+- Nunca crie bean de ObjectMapper/JsonMapper, nem em src/main nem em src/test. Use o auto-configurado pelo Boot.
+- Validações de regra de negócio (ex.: duplicidade) ficam no service, nunca no controller.
+- Ao corrigir algo que pedi, não contorne movendo o problema para outro lugar; se não for possível, pare e explique.
 
 ## Banco
 - Migrations em `src/main/resources/db/migration`, `V<n>__<descricao>.sql`. **Nunca edite migration existente.**
