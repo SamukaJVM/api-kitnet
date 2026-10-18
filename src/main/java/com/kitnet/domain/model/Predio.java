@@ -1,5 +1,6 @@
 package com.kitnet.domain.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -27,6 +28,7 @@ public class Predio {
 
 	@NotBlank(message = "CEP é obrigatório")
 	@Pattern(regexp = "^\\d{8}$", message = "CEP deve conter exatamente 8 dígitos")
+	@Column(length = 8)
 	private String cep;
 
 	@Size(max = 255, message = "Logradouro não pode exceder 255 caracteres")
@@ -42,6 +44,7 @@ public class Predio {
 	private String localidade;
 
 	@Size(max = 2, message = "UF deve ter exatamente 2 caracteres")
+	@Column(length = 2)
 	private String uf;
 
 	@Size(max = 10, message = "Número não pode exceder 10 caracteres")
