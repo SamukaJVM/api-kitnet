@@ -21,6 +21,20 @@ Após cada lançamento, o inquilino é avisado por e-mail. Lançamentos podem se
 **Usuários do sistema:** o proprietário/administrador e, opcionalmente, operadores com permissões limitadas.
 Inquilino **não** acessa o sistema no MVP.
 
+## Convenções gerais
+
+### Respostas de erro
+| Situação | Exceção | Status |
+|---|---|---|
+| Dado malformado (Bean Validation) | — | 400 |
+| Regra de negócio violada | `NegocioException` | 400 |
+| Duplicidade de dado único | `NegocioException` | 400 |
+| Recurso não encontrado | `*NaoEncontradoException` | 404 |
+| Exclusão bloqueada por vínculo | `EntidadeEmUsoException` | 409 |
+
+**Decisão:** duplicidade usa 400 para manter a simplicidade no MVP.
+Reavaliar 409 na fase SaaS.
+
 ## 2. Glossário
 
 | Termo | Significado |
