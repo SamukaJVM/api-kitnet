@@ -14,6 +14,8 @@ import com.kitnet.domain.repository.PredioRepository;
 @Service
 public class CadastroPredioService {
 
+	private static final String MSG_DESCRICAO_DUPLICADA = "Já existe um prédio cadastrado com essa descrição";
+
 	private final PredioRepository predioRepository;
 
 	public CadastroPredioService(PredioRepository predioRepository) {
@@ -21,23 +23,11 @@ public class CadastroPredioService {
 	}
 
 	@Transactional
-	public Predio salvar(Predio predio) {
-		if (predio.getId() == null) {
-			if (predioRepository.existsByDescricao(predio.getDescricao())) {
-				throw new NegocioException("Já existe um prédio cadastrado com essa descrição");
-			}
-		} else {
-			if (predioRepository.existsByDescricaoAndIdNot(predio.getDescricao(), predio.getId())) {
-				throw new NegocioException("Já existe um prédio cadastrado com essa descrição");
-			}
+	public Predio criar(Predio predio) {
+		if (predioRepository.existsByDescricao(predio.getDescricao())) {
+			throw new NegocioException(MSG_DESCRICAO_DUPLICADA);
 		}
-		try {
-			Predio saved = predioRepository.save(predio);
-			predioRepository.flush();
-			return saved;
-		} catch (DataIntegrityViolationException e) {
-			throw new NegocioException("Não foi possível salvar o prédio: dados conflitantes");
-		}
+		return persistir(predio);
 	}
 
 	@Transactional
@@ -65,11 +55,21 @@ public class CadastroPredioService {
 	@Transactional
 	public Predio atualizar(Long predioId, Predio predioAtualizado) {
 		if (predioRepository.existsByDescricaoAndIdNot(predioAtualizado.getDescricao(), predioId)) {
-			throw new NegocioException("Já existe um prédio cadastrado com essa descrição");
+			throw new NegocioException(MSG_DESCRICAO_DUPLICADA);
 		}
 		Predio predio = buscarOuFalhar(predioId);
 		predio.atualizarDados(predioAtualizado);
-		return salvar(predio);
+		return persistir(predio);
+	}
+
+	private Predio persistir(Predio predio) {
+		try {
+			Predio saved = predioRepository.save(predio);
+			predioRepository.flush();
+			return saved;
+		} catch (DataIntegrityViolationException e) {
+			throw new NegocioException("Não foi possível salvar o prédio: conflito com dados já cadastrados");
+		}
 	}
 
 }

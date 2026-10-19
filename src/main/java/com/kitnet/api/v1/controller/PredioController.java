@@ -56,7 +56,7 @@ public class PredioController implements PredioControllerOpenApi {
 	@Override
 	public ResponseEntity<PredioModel> criar(@RequestBody @Valid PredioInput predioInput) {
 		Predio predio = predioMapper.toDomain(predioInput);
-		predio = cadastroPredioService.salvar(predio);
+		predio = cadastroPredioService.criar(predio);
 
 		URI location = ServletUriComponentsBuilder.fromCurrentRequest()
 				.path("/{id}")

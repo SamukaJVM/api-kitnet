@@ -111,7 +111,8 @@ class PredioControllerTest extends IntegrationTest {
 			.expectStatus().isBadRequest()
 			.expectBody()
 			.jsonPath("$.status").isEqualTo(400)
-			.jsonPath("$.title").isEqualTo("Violação de regra de negócio");
+			.jsonPath("$.title").isEqualTo("Violação de regra de negócio")
+			.jsonPath("$.detail").isEqualTo("Já existe um prédio cadastrado com essa descrição");
 	}
 
 	@Test
@@ -275,7 +276,8 @@ class PredioControllerTest extends IntegrationTest {
 			.expectStatus().isBadRequest()
 			.expectBody()
 			.jsonPath("$.status").isEqualTo(400)
-			.jsonPath("$.title").isEqualTo("Violação de regra de negócio");
+			.jsonPath("$.title").isEqualTo("Violação de regra de negócio")
+			.jsonPath("$.detail").isEqualTo("Já existe um prédio cadastrado com essa descrição");
 	}
 
 	@Test
