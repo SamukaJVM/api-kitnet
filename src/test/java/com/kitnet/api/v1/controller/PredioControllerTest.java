@@ -179,15 +179,26 @@ class PredioControllerTest extends IntegrationTest {
 
 	@Test
 	void deveListarPrediosPaginado() {
-		PredioInput input = new PredioInput(
-			"Prédio Para Listar",
+		PredioInput input1 = new PredioInput(
+			"Prédio Para Listar 1",
 			"66666666",
+			null, null, null, null, null, null
+		);
+		PredioInput input2 = new PredioInput(
+			"Prédio Para Listar 2",
+			"66666667",
 			null, null, null, null, null, null
 		);
 
 		restTestClient.post().uri("/v1/predios")
 			.contentType(MediaType.APPLICATION_JSON)
-			.body(input)
+			.body(input1)
+			.exchange()
+			.expectStatus().isCreated();
+
+		restTestClient.post().uri("/v1/predios")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(input2)
 			.exchange()
 			.expectStatus().isCreated();
 
@@ -195,7 +206,9 @@ class PredioControllerTest extends IntegrationTest {
 			.exchange()
 			.expectStatus().isOk()
 			.expectBody()
-			.jsonPath("$.content").isArray();
+			.jsonPath("$.content").isArray()
+			.jsonPath("$.content.length()").isEqualTo(2)
+			.jsonPath("$.page.totalElements").isEqualTo(2);
 	}
 
 	@Test
