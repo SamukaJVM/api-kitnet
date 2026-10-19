@@ -1,7 +1,11 @@
 package com.kitnet.api.v1.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.client.EntityExchangeResult;
 
 import com.kitnet.api.v1.input.PredioInput;
 import com.kitnet.api.v1.model.PredioModel;
@@ -46,13 +50,18 @@ class PredioControllerTest extends IntegrationTest {
 			null
 		);
 
-		restTestClient.post().uri("/v1/predios")
+		EntityExchangeResult<PredioModel> resultado = restTestClient.post().uri("/v1/predios")
 			.contentType(MediaType.APPLICATION_JSON)
 			.body(input)
 			.exchange()
 			.expectStatus().isCreated()
-			.expectBody()
-			.jsonPath("$.id").exists();
+			.expectBody(PredioModel.class)
+			.returnResult();
+
+		PredioModel criado = resultado.getResponseBody();
+		String location = resultado.getResponseHeaders().getFirst(HttpHeaders.LOCATION);
+
+		assertThat(location).isNotNull().endsWith("/v1/predios/" + criado.id());
 	}
 
 	@Test
@@ -310,6 +319,53 @@ class PredioControllerTest extends IntegrationTest {
 			.jsonPath("$.status").isEqualTo(400)
 			.jsonPath("$.title").isEqualTo("Erro de validação")
 			.jsonPath("$.fields.cep").exists();
+	}
+
+	@Test
+	void devePutEmIdInexistenteRetornar404() {
+		PredioInput input = new PredioInput(
+			"Prédio Inexistente",
+			"44444444",
+			null, null, null, null, null, null
+		);
+
+		restTestClient.put().uri("/v1/predios/9999")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(input)
+			.exchange()
+			.expectStatus().isNotFound()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(404)
+			.jsonPath("$.title").isEqualTo("Entidade não encontrada");
+	}
+
+	@Test
+	void deveDeleteEmIdInexistenteRetornar404() {
+		restTestClient.delete().uri("/v1/predios/9999")
+			.exchange()
+			.expectStatus().isNotFound()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(404)
+			.jsonPath("$.title").isEqualTo("Entidade não encontrada");
+	}
+
+	@Test
+	void deveRetornarErroValidacaoParaDescricaoEmBranco() {
+		PredioInput input = new PredioInput(
+			"",
+			"12345678",
+			null, null, null, null, null, null
+		);
+
+		restTestClient.post().uri("/v1/predios")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(input)
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(400)
+			.jsonPath("$.title").isEqualTo("Erro de validação")
+			.jsonPath("$.fields.descricao").exists();
 	}
 
 }
