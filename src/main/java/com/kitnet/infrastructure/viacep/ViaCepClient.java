@@ -41,9 +41,8 @@ public class ViaCepClient implements EnderecoCepFinder {
 		}
 
 		return new Endereco(
-				resposta.cep(),
+				resposta.cep().replaceAll("\\D", ""),
 				resposta.logradouro(),
-				resposta.complemento(),
 				resposta.bairro(),
 				resposta.localidade(),
 				resposta.uf());

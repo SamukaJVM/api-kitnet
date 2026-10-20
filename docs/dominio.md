@@ -65,8 +65,14 @@ Reavaliar 409 na fase SaaS.
 
 ### 3.1.1 Consulta de CEP (ViaCEP)
 - **Regra:** `GET /v1/ceps/{cep}` é um endpoint **standalone**, não acoplado ao cadastro de Prédio — consulta o ViaCEP
-  e devolve o endereço (cep, logradouro, complemento, bairro, localidade, uf) para o front preencher qualquer formulário.
+  e devolve o endereço (cep, logradouro, bairro, localidade, uf) para o front preencher qualquer formulário.
   Não persiste nada, não grava relação com Prédio.
+- **Regra:** o `cep` devolvido é normalizado para 8 dígitos (sem hífen), coerente com `Predio.cep` (`varchar(8)`).
+  O ViaCEP devolve formatado (`"01310-200"`); removemos todo caractere não numérico antes de responder.
+- **Decisão:** não devolvemos `complemento`. No ViaCEP esse campo descreve a faixa de numeração do logradouro
+  (ex.: "de 612 a 1350 - lado par"), não o complemento do imóvel — manter o nome induziria o front a preencher
+  o complemento do prédio com esse valor, o que é semanticamente errado. Removido de `Endereco`, `CepModel` e
+  do DTO interno do cliente ViaCEP.
 - CEP fora do formato de 8 dígitos → 400, validado antes de chamar o ViaCEP.
 - CEP inexistente (ViaCEP responde 200 com `erro: true`) → 404 com mensagem clara.
 - ViaCEP fora do ar, erro 5xx ou timeout → 503 (não 500), sem vazar a resposta crua do ViaCEP.

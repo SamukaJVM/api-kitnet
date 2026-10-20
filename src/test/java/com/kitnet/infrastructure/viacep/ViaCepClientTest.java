@@ -34,13 +34,27 @@ class ViaCepClientTest {
 		serverOut[0].expect(requestTo("https://viacep.com.br/ws/01310200/json"))
 			.andRespond(withSuccess(
 				"""
-				{"cep":"01310-200","logradouro":"Avenida Paulista","complemento":"","bairro":"Bela Vista","localidade":"São Paulo","uf":"SP"}
+				{
+					"cep": "01310-200",
+					"logradouro": "Avenida Paulista",
+					"complemento": "de 612 a 1350 - lado par",
+					"unidade": "",
+					"bairro": "Bela Vista",
+					"localidade": "São Paulo",
+					"uf": "SP",
+					"estado": "São Paulo",
+					"regiao": "Sudeste",
+					"ibge": "3550308",
+					"gia": "1004",
+					"ddd": "11",
+					"siafi": "7107"
+				}
 				""",
 				MediaType.APPLICATION_JSON));
 
 		Endereco endereco = client.buscarPorCep("01310200");
 
-		assertThat(endereco.cep()).isEqualTo("01310-200");
+		assertThat(endereco.cep()).isEqualTo("01310200");
 		assertThat(endereco.logradouro()).isEqualTo("Avenida Paulista");
 		assertThat(endereco.bairro()).isEqualTo("Bela Vista");
 		assertThat(endereco.localidade()).isEqualTo("São Paulo");

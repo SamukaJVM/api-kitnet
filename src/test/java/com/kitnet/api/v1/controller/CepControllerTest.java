@@ -12,7 +12,7 @@ class CepControllerTest extends IntegrationTest {
 	@Test
 	void deveRetornarEnderecoQuandoCepValido() {
 		stubEnderecoCepFinder.retornar(new Endereco(
-			"01310200", "Avenida Paulista", "", "Bela Vista", "São Paulo", "SP"));
+			"01310200", "Avenida Paulista", "Bela Vista", "São Paulo", "SP"));
 
 		restTestClient.get().uri("/v1/ceps/01310200")
 			.exchange()
