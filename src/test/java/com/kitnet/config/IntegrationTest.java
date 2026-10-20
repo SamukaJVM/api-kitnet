@@ -10,7 +10,7 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, CepFinderTestConfiguration.class})
 public abstract class IntegrationTest {
 
 	@Autowired
@@ -19,9 +19,13 @@ public abstract class IntegrationTest {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
+	@Autowired
+	protected StubEnderecoCepFinder stubEnderecoCepFinder;
+
 	@BeforeEach
 	void limparBanco() {
 		new DatabaseCleaner(jdbcTemplate).limpar();
+		stubEnderecoCepFinder.reset();
 	}
 
 }

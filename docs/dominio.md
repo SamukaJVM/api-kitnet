@@ -31,6 +31,7 @@ Inquilino **não** acessa o sistema no MVP.
 | Duplicidade de dado único | `NegocioException` | 400 |
 | Recurso não encontrado | `*NaoEncontradoException` | 404 |
 | Exclusão bloqueada por vínculo | `EntidadeEmUsoException` | 409 |
+| Serviço externo indisponível | `ServicoExternoIndisponivelException` | 503 |
 
 **Decisão:** duplicidade usa 400 para manter a simplicidade no MVP.
 Reavaliar 409 na fase SaaS.
@@ -60,9 +61,15 @@ Reavaliar 409 na fase SaaS.
 | logradouro, complemento, bairro, localidade, uf | preenchidos a partir do CEP, editáveis |
 | numero | opcional |
 
-- **Regra:** `GET /v1/predios/cep/{cep}` consulta o ViaCEP e devolve o endereço para o front preencher o formulário.
-  CEP inexistente → 404 com mensagem clara. ViaCEP fora do ar → 503 (não 500).
 - **Regra:** prédio com apartamentos não pode ser excluído → 409.
+
+### 3.1.1 Consulta de CEP (ViaCEP)
+- **Regra:** `GET /v1/ceps/{cep}` é um endpoint **standalone**, não acoplado ao cadastro de Prédio — consulta o ViaCEP
+  e devolve o endereço (cep, logradouro, complemento, bairro, localidade, uf) para o front preencher qualquer formulário.
+  Não persiste nada, não grava relação com Prédio.
+- CEP fora do formato de 8 dígitos → 400, validado antes de chamar o ViaCEP.
+- CEP inexistente (ViaCEP responde 200 com `erro: true`) → 404 com mensagem clara.
+- ViaCEP fora do ar, erro 5xx ou timeout → 503 (não 500), sem vazar a resposta crua do ViaCEP.
 
 ### 3.2 Apartamento
 | Campo | Regra |
@@ -192,7 +199,7 @@ apenas armazenados, sem nenhuma regra. Havia uma constante `BANDEIRA_AMARELA = 0
 
 | Recurso | Antigo | Novo |
 |---|---|---|
-| Prédios | `/v1/predios` + `/cep/{cep}` | igual |
+| Prédios | `/v1/predios` + `/cep/{cep}` | `/v1/predios` (consulta de CEP passa a ser standalone, ver 3.1.1: `/v1/ceps/{cep}`) |
 | Apartamentos | `/v1/apartamentos`, `/todos`, `/todos/disponiveis` | `/v1/apartamentos?status=DISPONIVEL` (paginado) + `/{id}/manutencao` |
 | Inquilinos | `/v1/inquilinos`, `/todos`, `/todos/ativos` | `/v1/inquilinos?status=ATIVO` |
 | Valores | `/v1/valores` | igual (ou dentro de apartamento, ver 3.4) |

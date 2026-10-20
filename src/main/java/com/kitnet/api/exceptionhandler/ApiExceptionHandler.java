@@ -16,11 +16,13 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.kitnet.domain.exception.EntidadeEmUsoException;
 import com.kitnet.domain.exception.EntidadeNaoEncontradaException;
 import com.kitnet.domain.exception.NegocioException;
+import com.kitnet.domain.exception.ServicoExternoIndisponivelException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
@@ -66,6 +68,20 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
 	}
 
+	@ExceptionHandler(ServicoExternoIndisponivelException.class)
+	public ResponseEntity<ProblemDetail> handleServicoExternoIndisponivel(ServicoExternoIndisponivelException ex, WebRequest request) {
+		log.error("Serviço externo indisponível", ex);
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+			HttpStatus.SERVICE_UNAVAILABLE,
+			"Serviço externo temporariamente indisponível. Tente novamente mais tarde."
+		);
+		problem.setType(URI.create("https://kitnet.com/problemas/servico-externo-indisponivel"));
+		problem.setTitle("Serviço externo indisponível");
+		problem.setProperty("userMessage", "Serviço externo temporariamente indisponível. Tente novamente mais tarde.");
+		problem.setProperty("timestamp", Instant.now());
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(problem);
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ProblemDetail> handleGenericException(Exception ex, WebRequest request) {
 		log.error("Erro não tratado", ex);
@@ -99,6 +115,33 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		Map<String, String> fields = new LinkedHashMap<>();
 		ex.getBindingResult().getFieldErrors().forEach(error ->
 			fields.put(error.getField(), error.getDefaultMessage())
+		);
+		problem.setProperty("fields", fields);
+
+		return ResponseEntity.badRequest().body(problem);
+	}
+
+	@Override
+	protected ResponseEntity<Object> handleHandlerMethodValidationException(
+		HandlerMethodValidationException ex,
+		HttpHeaders headers,
+		HttpStatusCode status,
+		WebRequest request
+	) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+			HttpStatus.BAD_REQUEST,
+			"Validação falhou"
+		);
+		problem.setType(URI.create("https://kitnet.com/problemas/validacao"));
+		problem.setTitle("Erro de validação");
+		problem.setProperty("userMessage", "Os dados fornecidos são inválidos");
+		problem.setProperty("timestamp", Instant.now());
+
+		Map<String, String> fields = new LinkedHashMap<>();
+		ex.getParameterValidationResults().forEach(result ->
+			result.getResolvableErrors().forEach(error ->
+				fields.put(result.getMethodParameter().getParameterName(), error.getDefaultMessage())
+			)
 		);
 		problem.setProperty("fields", fields);
 
