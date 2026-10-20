@@ -2,6 +2,7 @@ package com.kitnet.infrastructure.viacep;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -18,8 +19,8 @@ public class ViaCepClient implements EnderecoCepFinder {
 
 	private final RestClient restClient;
 
-	public ViaCepClient(RestClient viaCepRestClient) {
-		this.restClient = viaCepRestClient;
+	public ViaCepClient(@Qualifier("viaCepRestClient") RestClient restClient) {
+		this.restClient = restClient;
 	}
 
 	@Override
