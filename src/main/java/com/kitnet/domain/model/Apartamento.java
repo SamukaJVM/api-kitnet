@@ -71,4 +71,12 @@ public class Apartamento {
 		// ou pelos endpoints explícitos de manutenção (fora deste CRUD).
 	}
 
+	public void ocupar() {
+		this.status = StatusApartamento.OCUPADO;
+	}
+
+	public void liberar() {
+		this.status = StatusApartamento.DISPONIVEL;
+	}
+
 }

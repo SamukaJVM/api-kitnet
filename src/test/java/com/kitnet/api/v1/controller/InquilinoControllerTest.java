@@ -2,13 +2,21 @@ package com.kitnet.api.v1.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
 
+import com.kitnet.api.v1.input.ApartamentoInput;
 import com.kitnet.api.v1.input.InquilinoInput;
+import com.kitnet.api.v1.input.LancamentoInput;
+import com.kitnet.api.v1.input.PredioInput;
+import com.kitnet.api.v1.model.ApartamentoModel;
 import com.kitnet.api.v1.model.InquilinoModel;
+import com.kitnet.api.v1.model.PredioModel;
 import com.kitnet.config.IntegrationTest;
 
 class InquilinoControllerTest extends IntegrationTest {
@@ -412,6 +420,45 @@ class InquilinoControllerTest extends IntegrationTest {
 			.expectBody()
 			.jsonPath("$.status").isEqualTo(404)
 			.jsonPath("$.title").isEqualTo("Entidade não encontrada");
+	}
+
+	@Test
+	void deveRetornar409AoExcluirInquilinoComLancamento() {
+		PredioModel predio = restTestClient.post().uri("/v1/predios")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(new PredioInput("Prédio Bloqueando Inquilino", "61345678", null, null, null, null, null, null))
+			.exchange()
+			.expectStatus().isCreated()
+			.expectBody(PredioModel.class)
+			.returnResult()
+			.getResponseBody();
+
+		ApartamentoModel apartamento = restTestClient.post().uri("/v1/apartamentos")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(new ApartamentoInput("1", "Kitnet bloqueando inquilino", null, predio.id(), new BigDecimal("270.00")))
+			.exchange()
+			.expectStatus().isCreated()
+			.expectBody(ApartamentoModel.class)
+			.returnResult()
+			.getResponseBody();
+
+		InquilinoModel inquilino = criarInquilino("Inquilino Com Lançamento", "ComLancamento", null);
+
+		LancamentoInput lancamentoInput = new LancamentoInput(
+			apartamento.id(), inquilino.id(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 11), null, null);
+
+		restTestClient.post().uri("/v1/lancamentos")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(lancamentoInput)
+			.exchange()
+			.expectStatus().isCreated();
+
+		restTestClient.delete().uri("/v1/inquilinos/{id}", inquilino.id())
+			.exchange()
+			.expectStatus().isEqualTo(409)
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(409)
+			.jsonPath("$.title").isEqualTo("Entidade em uso");
 	}
 
 }

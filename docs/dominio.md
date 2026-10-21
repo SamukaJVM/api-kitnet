@@ -138,50 +138,75 @@ Permissões: `PREDIO`, `APARTAMENTO`, `INQUILINO`, `VALOR`, `LANCAMENTO`, `DIARI
 **Regra:** todos os valores calculados (dias, diária, total, débito, status de pagamento) são calculados **pelo servidor**.
 *Sistema antigo:* o cliente também enviava os campos calculados no POST.
 
-### 4.2 Cálculos
+### 4.2 Cálculos — mês comercial de 30 dias
 Sendo `valorMensal` o valor do aluguel (copiado de `apartamento.valorAluguel` no momento da
 criação do lançamento, ver 3.4):
 
-1. `dias = dias entre dataEntrada e dataPagamento`; se as datas forem iguais, `dias = 1`
-   - **[DECIDIR]** O dia de entrada conta? Ex.: entrada 01/01, pagamento 31/01 → 30 dias (sistema antigo) ou 31?
-2. `valorDiaria = valorMensal ÷ quantidade de dias do mês da dataEntrada`
-   - **[DECIDIR]** Arredondamento: sugestão = 2 casas, `HALF_EVEN`, aplicado só no total. *Sistema antigo:* `DECIMAL128` sem escala definida.
-   - **[DECIDIR]** Período que atravessa dois meses (ex.: 20/01 a 10/02): usar os dias do mês da entrada (sistema antigo) ou ratear por mês?
-3. `valorTotal = dias × valorDiaria`
-4. `valorDebito = valorTotal − valorPago` (nunca negativo — **[DECIDIR]** pagamento a maior vira crédito ou é rejeitado?)
-5. `statusPagamento = PAGO` se `valorDebito ≤ 0`, senão `DEBITO`
+1. `dias = ChronoUnit.DAYS.between(dataEntrada, dataPagamento)` (datas iguais não são permitidas,
+   ver 4.3 — não existe mais o caso especial `dias = 1`).
+2. **Ciclo mensal completo**: se `dataPagamento == dataEntrada.plusMonths(1)`, `valorTotal =
+   valorMensal` exato, sem divisão. `plusMonths` ajusta sozinho para o fim do mês (entrada 31/01 →
+   ciclo até 28/02 ou 29/02 em ano bissexto).
+3. **Período parcial** (qualquer `dataPagamento` entre `dataEntrada` exclusive e
+   `dataEntrada.plusMonths(1)` exclusive): `valorTotal = valorMensal × dias ÷ 30`, uma única
+   divisão (`BigDecimal.divide(30, 2, RoundingMode.HALF_UP)`, multiplicando antes de dividir para
+   não calcular uma diária intermediária e cair em dízima). Mesmo divisor (30) independente do mês
+   real cruzado — não há rateio por mês.
+4. **Teto:** dado que `dataPagamento` nunca pode passar de `dataEntrada.plusMonths(1)` (regra 4.3),
+   o maior período parcial possível já dá no máximo 30 dias — `valorTotal` nunca excede
+   `valorMensal` por construção; não precisa de `min()` explícito.
+5. **Pagamento maior que o total → rejeitado com 400** (`NegocioException`), nunca gera crédito
+   (ver seção 7).
+6. `valorDebito = valorTotal − valorPago` (nunca negativo, já que pagamento maior é rejeitado antes).
+7. `statusPagamento = PAGO` se `valorDebito == 0`, senão `DEBITO`.
 
-**Exemplo (para teste):** valor 270,00, entrada 01/04, pagamento 11/04 (abril = 30 dias)
-→ dias 10 → diária 9,00 → total 90,00 → pago 50,00 → débito 40,00 → `DEBITO`.
+**Exemplos (para teste):**
+- valor 270,00, entrada 01/04, pagamento 11/04 → dias 10 → total 90,00 → pago 50,00 → débito 40,00
+  → `DEBITO`.
+- valor 270,00, entrada 01/02, pagamento 01/03 (fevereiro) → ciclo completo → total 270,00 exato,
+  mesmo a diária "normal" de fevereiro (28 ou 29 dias) sendo diferente da de outros meses.
 
-**Regra:** os cálculos são métodos da própria entidade (`lancamento.calcularValores()`), não `@Component`s separados.
+**Regra:** os cálculos são métodos da própria entidade (`lancamento.calcularValores()`), não
+`@Component`s separados. `HALF_UP` (não `HALF_EVEN`): há só um arredondamento por lançamento (não
+acumula viés) e bate com a conta que o inquilino faria na calculadora.
 
 ### 4.3 Validações ao criar
-1. `dataPagamento` ≥ `dataEntrada` → senão 400. *(A mensagem do sistema antigo dizia o contrário — corrigir.)*
-2. Inquilino deve estar `ATIVO`.
-3. Apartamento deve estar `DISPONIVEL`. *Sistema antigo:* não verificava.
-4. **Conflito de período:** não pode existir outro lançamento **aberto** cujo período se sobreponha
-   (`novaEntrada ≤ existentePagamento` E `novoPagamento ≥ existenteEntrada`) para o **mesmo apartamento** OU para o **mesmo inquilino**.
-   *Sistema antigo:* a query tinha `AND/OR` sem parênteses — bloqueava qualquer lançamento de um apartamento que já teve um lançamento, em qualquer data.
-5. **[DECIDIR]** Um inquilino pode ter dois apartamentos ao mesmo tempo?
+1. `dataPagamento` deve ser **estritamente posterior** a `dataEntrada` (não `>=`) → senão 400.
+   Datas iguais dariam `dias = 0`, total zero e `PAGO` por acidente.
+2. `dataPagamento` não pode passar de `dataEntrada.plusMonths(1)` → senão 400 ("período não pode
+   ser maior que um ciclo mensal"). Sem esse teto, um período de 45 dias custaria o mesmo que 30
+   (o `÷30` mascararia o excesso).
+3. Inquilino deve estar `ATIVO`.
+4. Apartamento deve estar `DISPONIVEL`. *Sistema antigo:* não verificava.
+5. **Só um lançamento `ABERTO` por apartamento e só um por inquilino.** Isso substitui a checagem
+   de overlap de datas do desenho original (seção 4.3.4 da versão anterior deste documento): como
+   o status `ABERTO`/`FECHADO` do lançamento é 1:1 com a ocupação do apartamento (seção 4.4), não
+   pode haver dois lançamentos `ABERTO` para o mesmo apartamento por construção; a mesma restrição
+   para o inquilino resolve "um inquilino pode ter dois apartamentos ao mesmo tempo?" como **não**.
+   Garantido no banco por índice `UNIQUE` parcial (`WHERE status = 'ABERTO'`) em cada FK — a
+   checagem em Java (`apartamento.status == DISPONIVEL`) não é atômica sozinha sob concorrência;
+   a violação da constraint no banco é convertida em `NegocioException` (400), igual à política já
+   definida para duplicidade.
+   *Sistema antigo:* a query de overlap tinha `AND/OR` sem parênteses — bloqueava qualquer
+   lançamento de um apartamento que já teve um lançamento, em qualquer data.
 
 ### 4.4 Ciclo de vida
 ```
          criar                      fechar (só se PAGO)
   ──────────────► ABERTO ──────────────────────────► FECHADO
-                    ▲                                   │
-                    └──────────── reabrir ──────────────┘
 ```
 | Evento | Lançamento | Apartamento |
 |---|---|---|
 | Criar | `ABERTO`, statusPagamento calculado | → `OCUPADO` |
-| Registrar pagamento / editar | recalcula valores | — |
-| Fechar | `FECHADO` — **só se `PAGO`**, senão 400 "apartamento em débito" | → `DISPONIVEL` |
-| Reabrir | `ABERTO` — **[DECIDIR]** só se o apartamento ainda estiver `DISPONIVEL`? | → `OCUPADO` |
-| Excluir | removido — **[DECIDIR]** só se `ABERTO` e sem pagamento? | → `DISPONIVEL` |
+| Registrar pagamento (`PUT /{id}/pagamento`) | substitui `valorPago` (não soma) e recalcula | — |
+| Fechar | `FECHADO` — **só se `PAGO`**, senão 400 "lançamento em débito" | → `DISPONIVEL` |
+| Excluir | permitido só se `ABERTO` (400 se `FECHADO`) | → `DISPONIVEL` |
 
-*Sistema antigo:* um único `PUT /controles/{id}/status` que **invertia** true/false. No novo, ações explícitas
-(`PUT /lancamentos/{id}/fechamento`, `DELETE /lancamentos/{id}/fechamento`).
+**Sem reabertura.** Datas, apartamento e inquilino são imutáveis depois de criado (ver seção 7);
+a correção de um lançamento errado é **excluir e criar de novo**, o que torna reabrir um lançamento
+fechado redundante — por isso ele não existe nesta versão (o sistema antigo tinha um único
+`PUT /controles/{id}/status` que invertia true/false; aqui ficam só ações explícitas:
+`PUT /lancamentos/{id}/pagamento`, `PUT /lancamentos/{id}/fechamento`, `DELETE /lancamentos/{id}`).
 
 **Regra:** criar/fechar/excluir alteram lançamento E apartamento na **mesma transação**.
 
@@ -199,10 +224,10 @@ apenas armazenados, sem nenhuma regra. Havia uma constante `BANDEIRA_AMARELA = 0
 - *Sistema antigo:* publicava dentro do `salvar`, antes de garantir o commit.
 
 ### 4.7 Consultas e relatórios
-- Pesquisa paginada de lançamentos com filtros: inquilino, apartamento, prédio, status, período (dataPagamento).
-- Estatística: total recebido e total em débito por apartamento num período.
-  *Sistema antigo:* `/estatistica/por-apartamento` só filtrava por data e não agrupava por apartamento.
-- PDF de um lançamento (comprovante). **[DECIDIR]** manter JasperReports ou gerar de outra forma?
+- Pesquisa paginada de lançamentos com filtros: inquilino, apartamento, status (implementado na
+  Fase 1); prédio e período (`dataPagamento`) ficam para uma fase de consultas avançadas.
+- Estatística (total recebido/em débito por apartamento) e PDF de comprovante: **fora do MVP do
+  Lançamento**, ver seção 7 — ficam para uma feature futura de "Relatórios".
 
 ## 5. Endpoints (proposta)
 
@@ -212,8 +237,8 @@ apenas armazenados, sem nenhuma regra. Havia uma constante `BANDEIRA_AMARELA = 0
 | Apartamentos | `/v1/apartamentos`, `/todos`, `/todos/disponiveis` | `/v1/apartamentos?status=DISPONIVEL` (paginado) + `/{id}/manutencao` |
 | Inquilinos | `/v1/inquilinos`, `/todos`, `/todos/ativos` | `/v1/inquilinos?status=ATIVO` |
 | Valores | `/v1/valores` | não existe — é `apartamento.valorAluguel`, ver 3.4 |
-| Lançamentos | `/v1/controles` + `PUT /{id}/status` | `/v1/lancamentos` + `/{id}/fechamento` + `/{id}/comprovante` (PDF) |
-| Estatísticas | `/v1/controles/estatistica/por-apartamento` | `/v1/estatisticas/recebimentos-por-apartamento` |
+| Lançamentos | `/v1/controles` + `PUT /{id}/status` | `/v1/lancamentos` + `/{id}/pagamento` + `/{id}/fechamento` |
+| Estatísticas | `/v1/controles/estatistica/por-apartamento` | fora do MVP do Lançamento, ver 4.7/7 |
 | Tokens | `/v1/tokens/revoke` | responsabilidade do Authorization Server |
 
 ## 6. Bugs do sistema antigo — NÃO replicar
@@ -231,4 +256,12 @@ apenas armazenados, sem nenhuma regra. Havia uma constante `BANDEIRA_AMARELA = 0
 - Portal do inquilino
 - Cálculo de conta de luz
 - Pagamento online / boleto / Pix
+- Crédito/saldo quando o pagamento do lançamento é maior que o valor total devido (rejeitado com
+  400, nunca gera crédito — ver 4.2).
+- Edição de `dataEntrada`, `dataPagamento`, `apartamentoId` ou `inquilinoId` de um lançamento já
+  criado — todos imutáveis; a correção é excluir e criar de novo (ver 4.4).
+- Reabertura de lançamento fechado — o ciclo de vida é definitivo (fechar não tem volta); se fechou
+  por engano, exclui e recria (ver 4.4).
+- PDF de comprovante e estatísticas de recebimento (seção 4.7 da versão anterior deste documento)
+  — ficam para uma feature futura de "Relatórios", fora do escopo do Lançamento em si.
 - Contratos e reajuste anual
