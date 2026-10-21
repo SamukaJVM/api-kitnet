@@ -382,6 +382,10 @@ class PredioControllerTest extends IntegrationTest {
 			.jsonPath("$.status").isEqualTo(409)
 			.jsonPath("$.title").isEqualTo("Entidade em uso")
 			.jsonPath("$.detail").isEqualTo("Prédio não pode ser excluído pois possui apartamentos associados");
+
+		restTestClient.get().uri("/v1/predios/{id}", predio.id())
+			.exchange()
+			.expectStatus().isOk();
 	}
 
 	@Test
