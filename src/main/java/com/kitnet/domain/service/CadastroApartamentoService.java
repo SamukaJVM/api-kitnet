@@ -33,7 +33,6 @@ public class CadastroApartamentoService {
 	public Apartamento criar(Apartamento apartamento, Long predioId) {
 		Predio predio = buscarPredioOuFalhar(predioId);
 		apartamento.setPredio(predio);
-		normalizarMedidor(apartamento);
 		validarNumeroDuplicado(apartamento, null);
 		validarMedidorDuplicado(apartamento, null);
 		return persistir(apartamento);
@@ -43,7 +42,6 @@ public class CadastroApartamentoService {
 	public Apartamento atualizar(Long apartamentoId, Apartamento dados, Long predioId) {
 		Predio predio = buscarPredioOuFalhar(predioId);
 		dados.setPredio(predio);
-		normalizarMedidor(dados);
 		validarNumeroDuplicado(dados, apartamentoId);
 		validarMedidorDuplicado(dados, apartamentoId);
 
@@ -80,12 +78,6 @@ public class CadastroApartamentoService {
 	private Predio buscarPredioOuFalhar(Long predioId) {
 		return predioRepository.findById(predioId)
 			.orElseThrow(() -> new NegocioException("Prédio não encontrado com id: " + predioId));
-	}
-
-	private void normalizarMedidor(Apartamento apartamento) {
-		if (apartamento.getMedidor() != null && apartamento.getMedidor().isBlank()) {
-			apartamento.setMedidor(null);
-		}
 	}
 
 	private void validarNumeroDuplicado(Apartamento apartamento, Long idAtual) {

@@ -67,6 +67,10 @@ com.kitnets
 - Segredos via variável de ambiente. Nada de senha no `application.yml` versionado.
 - Nunca crie bean de ObjectMapper/JsonMapper, nem em src/main nem em src/test. Use o auto-configurado pelo Boot.
 - Validações de regra de negócio (ex.: duplicidade) ficam no service, nunca no controller.
+- Normalização de formato (trim, string vazia → `null`, minúsculas, remoção de máscara) acontece no
+  **construtor compacto do `*Input`**, nunca no service. O service só faz regra de negócio: duplicidade,
+  existência de entidade relacionada, mudança de status. Isso garante que a Bean Validation do `*Input`
+  (`@Email`, `@CPF`, etc.) rode sobre o valor já normalizado.
 - Ao corrigir algo que pedi, não contorne movendo o problema para outro lugar; se não for possível, pare e explique.
 
 ## Banco

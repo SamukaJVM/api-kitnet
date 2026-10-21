@@ -21,4 +21,16 @@ public record ApartamentoInput(
 	@NotNull(message = "Prédio é obrigatório")
 	Long predioId
 ) {
+
+	public ApartamentoInput {
+		medidor = normalizarBranco(medidor);
+	}
+
+	private static @Nullable String normalizarBranco(@Nullable String valor) {
+		if (valor == null) {
+			return null;
+		}
+		String normalizado = valor.trim();
+		return normalizado.isBlank() ? null : normalizado;
+	}
 }

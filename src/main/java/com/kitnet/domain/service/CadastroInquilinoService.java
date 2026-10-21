@@ -27,7 +27,6 @@ public class CadastroInquilinoService {
 
 	@Transactional
 	public Inquilino criar(Inquilino inquilino) {
-		normalizar(inquilino);
 		validarCpfDuplicado(inquilino, null);
 		return persistir(inquilino);
 	}
@@ -35,7 +34,6 @@ public class CadastroInquilinoService {
 	@Transactional
 	public Inquilino atualizar(Long inquilinoId, Inquilino dados) {
 		Inquilino inquilino = buscarOuFalhar(inquilinoId);
-		normalizar(dados);
 		validarCpfDuplicado(dados, inquilinoId);
 
 		inquilino.atualizarDados(dados);
@@ -79,36 +77,6 @@ public class CadastroInquilinoService {
 			? cb.conjunction()
 			: cb.equal(root.get("status"), status);
 		return inquilinoRepository.findAll(spec, pageable);
-	}
-
-	private void normalizar(Inquilino inquilino) {
-		inquilino.setCpf(normalizarCpf(inquilino.getCpf()));
-		inquilino.setEmail(normalizarEmail(inquilino.getEmail()));
-		inquilino.setContato(normalizarContato(inquilino.getContato()));
-	}
-
-	private String normalizarCpf(String cpf) {
-		if (cpf == null) {
-			return null;
-		}
-		String somenteDigitos = cpf.replaceAll("\\D", "");
-		return somenteDigitos.isBlank() ? null : somenteDigitos;
-	}
-
-	private String normalizarEmail(String email) {
-		if (email == null) {
-			return null;
-		}
-		String normalizado = email.trim().toLowerCase();
-		return normalizado.isBlank() ? null : normalizado;
-	}
-
-	private String normalizarContato(String contato) {
-		if (contato == null) {
-			return null;
-		}
-		String normalizado = contato.trim();
-		return normalizado.isBlank() ? null : normalizado;
 	}
 
 	private void validarCpfDuplicado(Inquilino inquilino, Long idAtual) {
