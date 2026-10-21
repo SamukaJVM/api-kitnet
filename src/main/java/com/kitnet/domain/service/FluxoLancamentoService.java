@@ -23,6 +23,7 @@ import com.kitnet.domain.model.Lancamento;
 import com.kitnet.domain.model.StatusApartamento;
 import com.kitnet.domain.model.StatusInquilino;
 import com.kitnet.domain.model.StatusLancamento;
+import com.kitnet.domain.model.StatusPagamento;
 import com.kitnet.domain.repository.ApartamentoRepository;
 import com.kitnet.domain.repository.InquilinoRepository;
 import com.kitnet.domain.repository.LancamentoRepository;
@@ -74,6 +75,43 @@ public class FluxoLancamentoService {
 		lancamento.setObservacao(observacao);
 		lancamento.calcularValores();
 		return lancamentoRepository.save(lancamento);
+	}
+
+	@Transactional
+	public Lancamento fechar(Long lancamentoId) {
+		Lancamento lancamento = buscarOuFalhar(lancamentoId);
+		if (lancamento.getStatus() == StatusLancamento.FECHADO) {
+			return lancamento;
+		}
+		if (lancamento.getStatusPagamento() != StatusPagamento.PAGO) {
+			throw new NegocioException("Lançamento em débito não pode ser fechado");
+		}
+		lancamento.setStatus(StatusLancamento.FECHADO);
+		Apartamento apartamento = lancamento.getApartamento();
+		apartamento.liberar();
+		apartamentoRepository.save(apartamento);
+		return lancamentoRepository.save(lancamento);
+	}
+
+	@Transactional
+	public Lancamento reabrir(Long lancamentoId) {
+		Lancamento lancamento = buscarOuFalhar(lancamentoId);
+		if (lancamento.getStatus() == StatusLancamento.ABERTO) {
+			return lancamento;
+		}
+		Apartamento apartamento = lancamento.getApartamento();
+		Inquilino inquilino = lancamento.getInquilino();
+		validarPrecondicoes(apartamento, inquilino);
+
+		lancamento.setStatus(StatusLancamento.ABERTO);
+		apartamento.ocupar();
+		apartamentoRepository.save(apartamento);
+
+		try {
+			return lancamentoRepository.saveAndFlush(lancamento);
+		} catch (DataIntegrityViolationException e) {
+			throw mapearViolacaoDeConcorrencia(e);
+		}
 	}
 
 	@Transactional

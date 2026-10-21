@@ -90,4 +90,18 @@ public class LancamentoController implements LancamentoControllerOpenApi {
 		return ResponseEntity.noContent().build();
 	}
 
+	@PutMapping("/{id}/fechamento")
+	@Override
+	public ResponseEntity<Void> fechar(@PathVariable Long id) {
+		fluxoLancamentoService.fechar(id);
+		return ResponseEntity.noContent().build();
+	}
+
+	@DeleteMapping("/{id}/fechamento")
+	@Override
+	public ResponseEntity<Void> reabrir(@PathVariable Long id) {
+		fluxoLancamentoService.reabrir(id);
+		return ResponseEntity.noContent().build();
+	}
+
 }

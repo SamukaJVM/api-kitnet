@@ -69,4 +69,20 @@ public interface LancamentoControllerOpenApi {
 	})
 	ResponseEntity<Void> deletar(@PathVariable Long id);
 
+	@Operation(summary = "Fechar lançamento", description = "Fecha o lançamento (só se estiver PAGO) e libera o apartamento. Idempotente: fechar um já fechado não faz nada.")
+	@ApiResponses(value = {
+		@ApiResponse(responseCode = "204", description = "Lançamento fechado com sucesso (ou já estava fechado)"),
+		@ApiResponse(responseCode = "400", description = "Lançamento em débito não pode ser fechado"),
+		@ApiResponse(responseCode = "404", description = "Lançamento não encontrado")
+	})
+	ResponseEntity<Void> fechar(@PathVariable Long id);
+
+	@Operation(summary = "Reabrir lançamento", description = "Reabre um lançamento fechado, exigindo apartamento disponível e inquilino ativo sem outro lançamento aberto. Idempotente: reabrir um já aberto não faz nada.")
+	@ApiResponses(value = {
+		@ApiResponse(responseCode = "204", description = "Lançamento reaberto com sucesso (ou já estava aberto)"),
+		@ApiResponse(responseCode = "400", description = "Apartamento indisponível, inquilino inativo ou apartamento/inquilino já com outro lançamento aberto"),
+		@ApiResponse(responseCode = "404", description = "Lançamento não encontrado")
+	})
+	ResponseEntity<Void> reabrir(@PathVariable Long id);
+
 }

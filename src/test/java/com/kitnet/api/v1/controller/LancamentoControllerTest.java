@@ -712,4 +712,263 @@ class LancamentoControllerTest extends IntegrationTest {
 			.isLessThanOrEqualTo(2);
 	}
 
+	@Test
+	void deveFecharLancamentoPagoComSucesso() {
+		PredioModel predio = criarPredio("Prédio Lanç AD", "23445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "135", "270.00");
+		InquilinoModel inquilino = criarInquilino("Fulano Lanç AD");
+
+		LancamentoModel criado = criarLancamento(apartamento.id(), inquilino.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("90.00"));
+		assertThat(criado.statusPagamento().name()).isEqualTo("PAGO");
+
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		restTestClient.get().uri("/v1/lancamentos/{id}", criado.id())
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo("FECHADO");
+	}
+
+	@Test
+	void deveLiberarApartamentoAoFechar() {
+		PredioModel predio = criarPredio("Prédio Lanç AE", "24445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "136", "270.00");
+		InquilinoModel inquilino = criarInquilino("Fulano Lanç AE");
+
+		LancamentoModel criado = criarLancamento(apartamento.id(), inquilino.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("90.00"));
+
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		restTestClient.get().uri("/v1/apartamentos/{id}", apartamento.id())
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo("DISPONIVEL");
+	}
+
+	@Test
+	void deveRetornarErro400AoFecharLancamentoComDebito() {
+		PredioModel predio = criarPredio("Prédio Lanç AF", "25445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "137", "270.00");
+		InquilinoModel inquilino = criarInquilino("Fulano Lanç AF");
+
+		LancamentoModel criado = criarLancamento(apartamento.id(), inquilino.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("50.00"));
+
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(400)
+			.jsonPath("$.detail").isEqualTo("Lançamento em débito não pode ser fechado");
+	}
+
+	@Test
+	void deveFecharLancamentoJaFechadoSemErro() {
+		PredioModel predio = criarPredio("Prédio Lanç AG", "26445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "138", "270.00");
+		InquilinoModel inquilino = criarInquilino("Fulano Lanç AG");
+
+		LancamentoModel criado = criarLancamento(apartamento.id(), inquilino.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("90.00"));
+
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+	}
+
+	@Test
+	void deveRetornar404AoFecharLancamentoInexistente() {
+		restTestClient.put().uri("/v1/lancamentos/9999/fechamento")
+			.exchange()
+			.expectStatus().isNotFound()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(404)
+			.jsonPath("$.title").isEqualTo("Entidade não encontrada");
+	}
+
+	@Test
+	void deveReabrirLancamentoFechado() {
+		PredioModel predio = criarPredio("Prédio Lanç AH", "27445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "139", "270.00");
+		InquilinoModel inquilino = criarInquilino("Fulano Lanç AH");
+
+		LancamentoModel criado = criarLancamento(apartamento.id(), inquilino.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("90.00"));
+
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		restTestClient.delete().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		restTestClient.get().uri("/v1/lancamentos/{id}", criado.id())
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo("ABERTO");
+
+		restTestClient.get().uri("/v1/apartamentos/{id}", apartamento.id())
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo("OCUPADO");
+	}
+
+	@Test
+	void deveReabrirLancamentoJaAbertoSemErro() {
+		PredioModel predio = criarPredio("Prédio Lanç AI", "28445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "140", "270.00");
+		InquilinoModel inquilino = criarInquilino("Fulano Lanç AI");
+
+		LancamentoModel criado = criarLancamento(apartamento.id(), inquilino.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), null);
+
+		restTestClient.delete().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		restTestClient.get().uri("/v1/apartamentos/{id}", apartamento.id())
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo("OCUPADO");
+	}
+
+	@Test
+	void deveRetornarErro400AoReabrirSeApartamentoOcupadoPorOutroLancamento() {
+		PredioModel predio = criarPredio("Prédio Lanç AJ", "29445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "141", "270.00");
+		InquilinoModel inquilino1 = criarInquilino("Fulano Lanç AJ1");
+		InquilinoModel inquilino2 = criarInquilino("Fulano Lanç AJ2");
+
+		LancamentoModel lancamento1 = criarLancamento(apartamento.id(), inquilino1.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("90.00"));
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", lancamento1.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		criarLancamento(apartamento.id(), inquilino2.id(), LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 11), null);
+
+		restTestClient.delete().uri("/v1/lancamentos/{id}/fechamento", lancamento1.id())
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(400)
+			.jsonPath("$.detail").isEqualTo("Apartamento não está disponível para locação");
+	}
+
+	@Test
+	void deveRetornarErro400AoReabrirSeInquilinoInativo() {
+		PredioModel predio = criarPredio("Prédio Lanç AK", "31445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "142", "270.00");
+		InquilinoModel inquilino = criarInquilino("Fulano Lanç AK");
+
+		LancamentoModel criado = criarLancamento(apartamento.id(), inquilino.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("90.00"));
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		restTestClient.put().uri("/v1/inquilinos/{id}/inativacao", inquilino.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		restTestClient.delete().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(400)
+			.jsonPath("$.detail").isEqualTo("Inquilino inativo não pode receber novo lançamento");
+	}
+
+	@Test
+	void deveRetornarErro400AoReabrirSeInquilinoTemOutroLancamentoAberto() {
+		PredioModel predio = criarPredio("Prédio Lanç AL", "32445678");
+		ApartamentoModel apartamentoA = criarApartamento(predio.id(), "143", "270.00");
+		ApartamentoModel apartamentoB = criarApartamento(predio.id(), "144", "270.00");
+		InquilinoModel inquilino = criarInquilino("Fulano Lanç AL");
+
+		LancamentoModel lancamento1 = criarLancamento(apartamentoA.id(), inquilino.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("90.00"));
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", lancamento1.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		criarLancamento(apartamentoB.id(), inquilino.id(), LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 11), null);
+
+		restTestClient.delete().uri("/v1/lancamentos/{id}/fechamento", lancamento1.id())
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(400)
+			.jsonPath("$.detail").isEqualTo("Inquilino já possui um lançamento aberto");
+	}
+
+	@Test
+	void deveRetornarErro400AoAtualizarLancamentoFechado() {
+		PredioModel predio = criarPredio("Prédio Lanç AM", "33445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "145", "270.00");
+		InquilinoModel inquilino = criarInquilino("Fulano Lanç AM");
+
+		LancamentoModel criado = criarLancamento(apartamento.id(), inquilino.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("90.00"));
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		LancamentoPagamentoInput pagamentoInput = new LancamentoPagamentoInput(new BigDecimal("90.00"), null);
+
+		restTestClient.put().uri("/v1/lancamentos/{id}/pagamento", criado.id())
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(pagamentoInput)
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(400)
+			.jsonPath("$.detail").isEqualTo("Lançamento fechado não pode ter o pagamento alterado");
+	}
+
+	@Test
+	void deveRetornarErro400AoExcluirLancamentoFechado() {
+		PredioModel predio = criarPredio("Prédio Lanç AN", "34445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "146", "270.00");
+		InquilinoModel inquilino = criarInquilino("Fulano Lanç AN");
+
+		LancamentoModel criado = criarLancamento(apartamento.id(), inquilino.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("90.00"));
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		restTestClient.delete().uri("/v1/lancamentos/{id}", criado.id())
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(400)
+			.jsonPath("$.detail").isEqualTo("Lançamento fechado não pode ser excluído");
+	}
+
+	@Test
+	void deveCriarNovoLancamentoNoApartamentoAposFechar() {
+		PredioModel predio = criarPredio("Prédio Lanç AO", "35445678");
+		ApartamentoModel apartamento = criarApartamento(predio.id(), "147", "270.00");
+		InquilinoModel inquilino1 = criarInquilino("Fulano Lanç AO1");
+		InquilinoModel inquilino2 = criarInquilino("Fulano Lanç AO2");
+
+		LancamentoModel criado = criarLancamento(apartamento.id(), inquilino1.id(), LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 11), new BigDecimal("90.00"));
+		restTestClient.put().uri("/v1/lancamentos/{id}/fechamento", criado.id())
+			.exchange()
+			.expectStatus().isNoContent();
+
+		LancamentoInput novoInput = new LancamentoInput(apartamento.id(), inquilino2.id(), LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 11), null, null);
+		restTestClient.post().uri("/v1/lancamentos")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(novoInput)
+			.exchange()
+			.expectStatus().isCreated();
+	}
+
 }

@@ -194,21 +194,26 @@ acumula viés) e bate com a conta que o inquilino faria na calculadora.
 ```
          criar                      fechar (só se PAGO)
   ──────────────► ABERTO ──────────────────────────► FECHADO
+                    ▲                                   │
+                    └──────────── reabrir ──────────────┘
 ```
 | Evento | Lançamento | Apartamento |
 |---|---|---|
 | Criar | `ABERTO`, statusPagamento calculado | → `OCUPADO` |
-| Registrar pagamento (`PUT /{id}/pagamento`) | substitui `valorPago` (não soma) e recalcula | — |
-| Fechar | `FECHADO` — **só se `PAGO`**, senão 400 "lançamento em débito" | → `DISPONIVEL` |
+| Registrar pagamento (`PUT /{id}/pagamento`) | substitui `valorPago` (não soma) e recalcula; 400 se `FECHADO` ("lançamento fechado não pode ter o pagamento alterado" — senão daria para criar débito num lançamento que já liberou o apartamento) | — |
+| Fechar (`PUT /{id}/fechamento`) | `FECHADO` — **só se `PAGO`**, senão 400 "lançamento em débito não pode ser fechado"; já `FECHADO` → 204 idempotente, sem tocar em nada | → `DISPONIVEL` |
+| Reabrir (`DELETE /{id}/fechamento`) | `ABERTO` — exige apartamento `DISPONIVEL` e inquilino `ATIVO` sem outro lançamento aberto (mesmas preconditões de criar, incluindo a garantia por índice `UNIQUE` parcial contra a mesma race condition); já `ABERTO` → 204 idempotente, sem tocar no apartamento | → `OCUPADO` |
 | Excluir | permitido só se `ABERTO` (400 se `FECHADO`) | → `DISPONIVEL` |
 
-**Sem reabertura.** Datas, apartamento e inquilino são imutáveis depois de criado (ver seção 7);
-a correção de um lançamento errado é **excluir e criar de novo**, o que torna reabrir um lançamento
-fechado redundante — por isso ele não existe nesta versão (o sistema antigo tinha um único
-`PUT /controles/{id}/status` que invertia true/false; aqui ficam só ações explícitas:
-`PUT /lancamentos/{id}/pagamento`, `PUT /lancamentos/{id}/fechamento`, `DELETE /lancamentos/{id}`).
+Datas, apartamento e inquilino continuam imutáveis depois de criado (ver seção 7) — reabrir **não**
+muda nenhum desses campos, só o status; a correção de um lançamento com dados errados continua
+sendo excluir e criar de novo. Reabrir serve para desfazer um fechamento feito por engano (ex.:
+fechou e precisa reverter porque o pagamento informado estava errado). *Sistema antigo:* um único
+`PUT /controles/{id}/status` que invertia true/false; aqui ficam ações explícitas
+(`PUT /lancamentos/{id}/pagamento`, `PUT /lancamentos/{id}/fechamento`,
+`DELETE /lancamentos/{id}/fechamento`, `DELETE /lancamentos/{id}`).
 
-**Regra:** criar/fechar/excluir alteram lançamento E apartamento na **mesma transação**.
+**Regra:** criar/fechar/reabrir/excluir alteram lançamento E apartamento na **mesma transação**.
 
 ### 4.5 Conta de luz
 *Sistema antigo:* campos `entregaContaLuz` (SIM/NAO), `statusPagamentoLuz` (PAGO/DEBITO) e `statusProximoPagamento` (PAGO/DEBITO),
@@ -260,8 +265,6 @@ apenas armazenados, sem nenhuma regra. Havia uma constante `BANDEIRA_AMARELA = 0
   400, nunca gera crédito — ver 4.2).
 - Edição de `dataEntrada`, `dataPagamento`, `apartamentoId` ou `inquilinoId` de um lançamento já
   criado — todos imutáveis; a correção é excluir e criar de novo (ver 4.4).
-- Reabertura de lançamento fechado — o ciclo de vida é definitivo (fechar não tem volta); se fechou
-  por engano, exclui e recria (ver 4.4).
 - PDF de comprovante e estatísticas de recebimento (seção 4.7 da versão anterior deste documento)
   — ficam para uma feature futura de "Relatórios", fora do escopo do Lançamento em si.
 - Contratos e reajuste anual
