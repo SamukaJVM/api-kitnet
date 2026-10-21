@@ -154,7 +154,10 @@ criação do lançamento, ver 3.4):
    real cruzado — não há rateio por mês.
 4. **Teto:** dado que `dataPagamento` nunca pode passar de `dataEntrada.plusMonths(1)` (regra 4.3),
    o maior período parcial possível já dá no máximo 30 dias — `valorTotal` nunca excede
-   `valorMensal` por construção; não precisa de `min()` explícito.
+   `valorMensal` por construção (provado em `LancamentoCalculoTest`, caso "30 dias dentro de ciclo
+   de 31"). O `min(valorTotal, valorMensal)` continua no código como proteção redundante, documentada
+   como tal — se essa validação de período mudar no futuro, o teto evita que o cálculo extrapole o
+   valor mensal silenciosamente.
 5. **Pagamento maior que o total → rejeitado com 400** (`NegocioException`), nunca gera crédito
    (ver seção 7).
 6. `valorDebito = valorTotal − valorPago` (nunca negativo, já que pagamento maior é rejeitado antes).

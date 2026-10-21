@@ -87,6 +87,12 @@ com.kitnets
 ## Como trabalhar comigo
 - Uma feature por vez. Plano antes de código. Diffs pequenos (até ~8 arquivos por etapa).
 - Todo endpoint novo tem teste de API: caminho feliz + ao menos 1 erro.
-- Regras de cálculo do lançamento têm teste de unidade usando os exemplos do `dominio.md`.
+- Regras de cálculo puro (ex.: `Lancamento.calcularValores()`) têm teste de **unidade** em
+  `src/test/java/.../domain/model`, `@ParameterizedTest`/`@CsvSource`, chamando o método direto na
+  entidade, **sem** `@SpringBootTest` nem Testcontainers — é cálculo com muitos casos que só mudam
+  números, não vale o custo de subir contexto Spring/banco para cada um. Teste de controller fica
+  só para o fluxo HTTP e para regras que dependem do banco (FK, precondição de outra entidade,
+  concorrência); evite duplicar o mesmo número calculado nos dois níveis — no controller, 1 ou 2
+  casos de ponta a ponta (ex.: o exemplo do `dominio.md`) já provam a integração.
 - Ao terminar: rode `./mvnw verify`, mostre o resultado e resuma em até 5 linhas o que mudou.
 - Não adicione dependência no `pom.xml` sem justificar.

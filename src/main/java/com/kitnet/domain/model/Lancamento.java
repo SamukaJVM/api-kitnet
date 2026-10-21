@@ -92,10 +92,16 @@ public class Lancamento {
 
 		this.dias = (int) ChronoUnit.DAYS.between(dataEntrada, dataPagamento);
 		boolean cicloCompleto = dataPagamento.isEqual(dataEntrada.plusMonths(1));
+		// min(valorMensal): proteção redundante, nunca deveria disparar — validarPeriodo() já
+		// rejeita qualquer período maior que um ciclo mensal, então o parcial mais longo possível
+		// (um dia antes do ciclo completo) já soma no máximo valorMensal exato (ver teste
+		// "30 dias dentro de ciclo de 31" em LancamentoCalculoTest). Mantido como cinto de
+		// segurança caso essa validação mude no futuro.
 		this.valorTotal = cicloCompleto
 			? valorMensal.setScale(2, RoundingMode.HALF_UP)
 			: valorMensal.multiply(BigDecimal.valueOf(dias))
-				.divide(BigDecimal.valueOf(DIAS_MES_COMERCIAL), 2, RoundingMode.HALF_UP);
+				.divide(BigDecimal.valueOf(DIAS_MES_COMERCIAL), 2, RoundingMode.HALF_UP)
+				.min(valorMensal.setScale(2, RoundingMode.HALF_UP));
 
 		BigDecimal pago = valorPago == null ? BigDecimal.ZERO : valorPago;
 		if (pago.compareTo(valorTotal) > 0) {
