@@ -85,6 +85,7 @@ Reavaliar 409 na fase SaaS.
 | medidor | opcional, até 10 caracteres, **único** (número do medidor de luz) |
 | status | `DISPONIVEL`, `OCUPADO`, `MANUTENCAO` — padrão `DISPONIVEL` |
 | predio | obrigatório |
+| valorAluguel | obrigatório, `BigDecimal` (2 casas), > 0 — valor mensal do aluguel desta kitnet |
 
 - **Regra:** o status **não** é alterado pelo PUT de cadastro. Ele muda por regra (lançamento) ou por ação explícita
   (`PUT /v1/apartamentos/{id}/manutencao` e `DELETE /v1/apartamentos/{id}/manutencao`).
@@ -108,13 +109,13 @@ Reavaliar 409 na fase SaaS.
 - **[DECIDIR]** Manter o campo `genero`? *Sistema antigo:* obrigatório, padrão MASCULINO — não é usado em nenhuma regra.
 - **Regra:** inquilino com lançamentos não é excluído (409); a forma de "remover" é inativar.
 
-### 3.4 Valor (tabela de aluguel)
-| Campo | Regra |
-|---|---|
-| valor | obrigatório, > 0, `BigDecimal` (2 casas), **único** |
-
-- **[DECIDIR]** Valor deveria ser um atributo do **apartamento** (cada kitnet tem seu aluguel) em vez de uma tabela solta?
-  Se continuar tabela, adicionar `descricao` (ex.: "Kitnet simples", "Kitnet com garagem").
+### 3.4 Valor — decisão: não é tabela
+**Decisão:** `Valor` não existe como entidade/tabela própria. O aluguel é um atributo do
+**Apartamento** (`apartamento.valorAluguel`, ver 3.2) — cada kitnet tem seu próprio valor.
+**Regra:** o `Lançamento` (ver seção 4) **copia** `apartamento.valorAluguel` para
+`lancamento.valor` no momento da criação. O lançamento nunca lê o valor do apartamento depois de
+criado — assim um reajuste futuro no apartamento não altera lançamentos já existentes (fechados
+ou não).
 
 ### 3.5 Diário
 - *Sistema antigo:* entidade com apenas `descricao` (até 10 caracteres), CRUD parcial, não usada por nenhuma outra parte.
@@ -131,14 +132,15 @@ Permissões: `PREDIO`, `APARTAMENTO`, `INQUILINO`, `VALOR`, `LANCAMENTO`, `DIARI
 ## 4. Lançamento — o coração do sistema
 
 ### 4.1 Dados de ENTRADA (o que o cliente envia)
-- inquilinoId, apartamentoId, valorId, dataEntrada, dataPagamento, valorPago, observacao
+- inquilinoId, apartamentoId, dataEntrada, dataPagamento, valorPago, observacao
 - status da conta de luz (ver 4.5)
 
 **Regra:** todos os valores calculados (dias, diária, total, débito, status de pagamento) são calculados **pelo servidor**.
 *Sistema antigo:* o cliente também enviava os campos calculados no POST.
 
 ### 4.2 Cálculos
-Sendo `valorMensal` o valor do aluguel (vindo do **Valor** referenciado):
+Sendo `valorMensal` o valor do aluguel (copiado de `apartamento.valorAluguel` no momento da
+criação do lançamento, ver 3.4):
 
 1. `dias = dias entre dataEntrada e dataPagamento`; se as datas forem iguais, `dias = 1`
    - **[DECIDIR]** O dia de entrada conta? Ex.: entrada 01/01, pagamento 31/01 → 30 dias (sistema antigo) ou 31?
@@ -209,7 +211,7 @@ apenas armazenados, sem nenhuma regra. Havia uma constante `BANDEIRA_AMARELA = 0
 | Prédios | `/v1/predios` + `/cep/{cep}` | `/v1/predios` (consulta de CEP passa a ser standalone, ver 3.1.1: `/v1/ceps/{cep}`) |
 | Apartamentos | `/v1/apartamentos`, `/todos`, `/todos/disponiveis` | `/v1/apartamentos?status=DISPONIVEL` (paginado) + `/{id}/manutencao` |
 | Inquilinos | `/v1/inquilinos`, `/todos`, `/todos/ativos` | `/v1/inquilinos?status=ATIVO` |
-| Valores | `/v1/valores` | igual (ou dentro de apartamento, ver 3.4) |
+| Valores | `/v1/valores` | não existe — é `apartamento.valorAluguel`, ver 3.4 |
 | Lançamentos | `/v1/controles` + `PUT /{id}/status` | `/v1/lancamentos` + `/{id}/fechamento` + `/{id}/comprovante` (PDF) |
 | Estatísticas | `/v1/controles/estatistica/por-apartamento` | `/v1/estatisticas/recebimentos-por-apartamento` |
 | Tokens | `/v1/tokens/revoke` | responsabilidade do Authorization Server |

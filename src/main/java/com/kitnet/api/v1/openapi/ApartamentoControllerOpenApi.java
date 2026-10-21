@@ -38,19 +38,19 @@ public interface ApartamentoControllerOpenApi {
 	})
 	ResponseEntity<ApartamentoModel> buscar(@PathVariable Long id);
 
-	@Operation(summary = "Criar novo apartamento", description = "Cria um novo apartamento vinculado a um prédio e retorna o recurso criado")
+	@Operation(summary = "Criar novo apartamento", description = "Cria um novo apartamento vinculado a um prédio, com o valor do aluguel, e retorna o recurso criado")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "201", description = "Apartamento criado com sucesso",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApartamentoModel.class))),
-		@ApiResponse(responseCode = "400", description = "Dados inválidos, prédio inexistente ou número/medidor duplicado")
+		@ApiResponse(responseCode = "400", description = "Dados inválidos (incluindo valor do aluguel ausente, zero/negativo ou com mais de 2 casas decimais), prédio inexistente ou número/medidor duplicado")
 	})
 	ResponseEntity<ApartamentoModel> criar(@RequestBody @Valid ApartamentoInput apartamentoInput);
 
-	@Operation(summary = "Atualizar apartamento", description = "Atualiza os dados de um apartamento existente")
+	@Operation(summary = "Atualizar apartamento", description = "Atualiza os dados de um apartamento existente, incluindo o valor do aluguel (reajuste)")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "200", description = "Apartamento atualizado com sucesso",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApartamentoModel.class))),
-		@ApiResponse(responseCode = "400", description = "Dados inválidos, prédio inexistente ou número/medidor duplicado"),
+		@ApiResponse(responseCode = "400", description = "Dados inválidos (incluindo valor do aluguel ausente, zero/negativo ou com mais de 2 casas decimais), prédio inexistente ou número/medidor duplicado"),
 		@ApiResponse(responseCode = "404", description = "Apartamento não encontrado")
 	})
 	ResponseEntity<ApartamentoModel> atualizar(@PathVariable Long id, @RequestBody @Valid ApartamentoInput apartamentoInput);

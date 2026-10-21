@@ -2,6 +2,8 @@ package com.kitnet.api.v1.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -13,6 +15,10 @@ import com.kitnet.api.v1.model.PredioModel;
 import com.kitnet.config.IntegrationTest;
 
 class PredioControllerTest extends IntegrationTest {
+
+	private static BigDecimal valor(String valor) {
+		return new BigDecimal(valor);
+	}
 
 	@Test
 	void deveCriarPredioComSucesso() {
@@ -367,7 +373,7 @@ class PredioControllerTest extends IntegrationTest {
 			.returnResult()
 			.getResponseBody();
 
-		ApartamentoInput apartamentoInput = new ApartamentoInput("1", "Kitnet bloqueando exclusão", null, predio.id());
+		ApartamentoInput apartamentoInput = new ApartamentoInput("1", "Kitnet bloqueando exclusão", null, predio.id(), valor("270.00"));
 
 		restTestClient.post().uri("/v1/apartamentos")
 			.contentType(MediaType.APPLICATION_JSON)
