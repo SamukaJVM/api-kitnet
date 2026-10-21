@@ -89,7 +89,8 @@ Reavaliar 409 na fase SaaS.
 - **Regra:** o status **não** é alterado pelo PUT de cadastro. Ele muda por regra (lançamento) ou por ação explícita
   (`PUT /v1/apartamentos/{id}/manutencao` e `DELETE /v1/apartamentos/{id}/manutencao`).
 - **Regra:** apartamento `OCUPADO` não pode entrar em manutenção.
-- **[DECIDIR]** `numero` é único **por prédio** (recomendado) ou único no sistema todo? *Sistema antigo:* único global, assim como `descricao`.
+- **Regra:** `numero` é único **por prédio** (constraint composta `predio_id + numero`), não global. Dois
+  prédios diferentes podem ter, cada um, um apartamento "101". *Sistema antigo:* único global — não repetido aqui.
 - **Regra:** apartamento com lançamentos não pode ser excluído → 409.
 
 ### 3.3 Inquilino

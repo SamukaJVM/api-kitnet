@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
 
+import com.kitnet.api.v1.input.ApartamentoInput;
 import com.kitnet.api.v1.input.PredioInput;
 import com.kitnet.api.v1.model.PredioModel;
 import com.kitnet.config.IntegrationTest;
@@ -347,6 +348,40 @@ class PredioControllerTest extends IntegrationTest {
 			.expectBody()
 			.jsonPath("$.status").isEqualTo(404)
 			.jsonPath("$.title").isEqualTo("Entidade não encontrada");
+	}
+
+	@Test
+	void naoDeveExcluirPredioComApartamentoAssociado() {
+		PredioInput input = new PredioInput(
+			"Prédio Com Apartamento",
+			"20202020",
+			null, null, null, null, null, null
+		);
+
+		PredioModel predio = restTestClient.post().uri("/v1/predios")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(input)
+			.exchange()
+			.expectStatus().isCreated()
+			.expectBody(PredioModel.class)
+			.returnResult()
+			.getResponseBody();
+
+		ApartamentoInput apartamentoInput = new ApartamentoInput("1", "Kitnet bloqueando exclusão", null, predio.id());
+
+		restTestClient.post().uri("/v1/apartamentos")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(apartamentoInput)
+			.exchange()
+			.expectStatus().isCreated();
+
+		restTestClient.delete().uri("/v1/predios/{id}", predio.id())
+			.exchange()
+			.expectStatus().isEqualTo(409)
+			.expectBody()
+			.jsonPath("$.status").isEqualTo(409)
+			.jsonPath("$.title").isEqualTo("Entidade em uso")
+			.jsonPath("$.detail").isEqualTo("Prédio não pode ser excluído pois possui apartamentos associados");
 	}
 
 	@Test
