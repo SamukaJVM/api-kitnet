@@ -1,5 +1,7 @@
 # Controle de Kitnets — API
 
+![CI](https://github.com/SamukaJVM/api-kitnet/actions/workflows/ci.yml/badge.svg)
+
 API REST para o dono de kitnets controlar seus **prédios**, **apartamentos**, **inquilinos** e os
 **lançamentos** de aluguel (quem ocupa qual apartamento, em que período, quanto deve e quanto
 pagou). Após cada lançamento, o inquilino é avisado por e-mail.
